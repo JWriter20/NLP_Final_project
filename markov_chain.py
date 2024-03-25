@@ -19,7 +19,44 @@ understanding the context a feel of the story)
 
 '''
 
+import nltk
 
-
-with open("./en_US.twitter.txt", "r") as f: # update the path accordingly.
+with open("./Prisoner_of_Azkaban.txt", "r") as f: # update the path accordingly.
     data = f.read()
+
+def split_to_sentences(data):
+    return [sentence for sentence in map(str.strip, data.split('.')) if sentence] # split based on period and line break
+
+def tokenize_sentences(sentences):
+    """
+    Tokenize sentences into tokens (words)
+    
+    Args:
+        sentences: List of strings
+    
+    Returns:
+        List of lists of tokens
+    """
+    
+    tokenized_sentences = []
+    for s in sentences:
+        s = s.lower()
+        tokens = nltk.word_tokenize(s)
+        tokenized_sentences.append(tokens)
+    
+    return tokenized_sentences
+
+data = data[:1000]
+sentences = tokenize_sentences(split_to_sentences(data))
+
+# Generate n-grams of size n
+# sentences: list of sentence to generate n-gram from
+# n: size of each sequence
+def generate_ngram(sentences, n):
+    ngram = []
+    for s in sentences:
+        ngram.append(s[i:i+n] for i in range(len(s)-n+1))
+    return ngram
+
+three_gram = generate_ngram(sentences, 3)
+print(three_gram)
