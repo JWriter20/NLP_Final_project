@@ -55,7 +55,7 @@ sentences = tokenize_sentences(split_to_sentences(data))
 def generate_ngram(sentences, n):
     ngram = []
     for s in sentences:
-        ngram.append(s[i:i+n] for i in range(len(s)-n+1))
+        ngram.append(list(s[i:i+n] for i in range(len(s)-n+1)))
     return ngram
 
 three_gram = generate_ngram(sentences, 3)
