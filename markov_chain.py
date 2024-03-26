@@ -178,3 +178,39 @@ def make_probability_matrix(n_plus1_gram_counts, vocabulary, k):
     count_matrix += k
     prob_matrix = count_matrix.div(count_matrix.sum(axis=1), axis=0)
     return prob_matrix
+
+def generate_text(tokenized_data, n, num_words=1000):
+    # Count n-grams in the tokenized data
+    n_gram_counts = count_n_grams(tokenized_data, n)
+    n_plus1_gram_counts = count_n_grams(tokenized_data, n+1)
+    
+    # Start with an initial n-gram
+    text = ["<s>"] * (n-1)
+    for _ in range(num_words):
+        current_n_gram = tuple(text[-(n-1):]) if n > 1 else ()
+        probabilities = estimate_probabilities(current_n_gram, n_gram_counts, n_plus1_gram_counts, vocabulary)
+        
+        # Weighted random choice of the next word
+        words = list(probabilities.keys())
+        probs = list(probabilities.values())
+        next_word = np.random.choice(words, p=probs)
+        
+        if next_word == "<e>":  # If the end token is generated, restart the n-gram context
+            text += ["<s>"] * (n-1)
+        else:
+            text.append(next_word)
+        
+        if len(text) >= num_words + n-1:  # n-1 additional tokens for initial tokens
+            break
+
+    # Return the generated text
+    return ' '.join(text[n-1:]).replace(" <e>", ".").replace("<unk>", "UNK")
+
+# Example usage
+large_text = "Your large input text here."
+preprocessed_data = get_tokenized_data(large_text)
+train_data, _ = preprocess_data(preprocessed_data, preprocessed_data, minimum_freq=2)  # Assuming all data is for training
+vocabulary = set(sum(train_data, []))  # Flatten the list of lists to get the vocabulary
+
+generated_text = generate_text(train_data, n=3, num_words=1000)
+print(generated_text)
