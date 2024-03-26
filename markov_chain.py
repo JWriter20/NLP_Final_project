@@ -207,10 +207,10 @@ def generate_text(tokenized_data, n, num_words=1000):
     return ' '.join(text[n-1:]).replace(" <e>", ".").replace("<unk>", "UNK")
 
 # Example usage
-large_text = ""
+with open("./Prisoner_of_Azkaban.txt", "r") as f: # update the path accordingly.
+    large_text = f.read()
 preprocessed_data = get_tokenized_data(large_text)
-train_data, _ = preprocess_data(preprocessed_data, preprocessed_data, minimum_freq=2)  # Assuming all data is for training
-vocabulary = set(sum(train_data, []))  # Flatten the list of lists to get the vocabulary
+train_data, test_data, vocabulary = preprocess_data(preprocessed_data, preprocessed_data, minimum_freq=2)
 
 generated_text = generate_text(train_data, n=3, num_words=1000)
 print(generated_text)
