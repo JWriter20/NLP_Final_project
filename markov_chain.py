@@ -20,43 +20,161 @@ understanding the context a feel of the story)
 '''
 
 import nltk
-
-with open("./Prisoner_of_Azkaban.txt", "r") as f: # update the path accordingly.
-    data = f.read()
+import math
+import random
+import numpy as np
+import pandas as pd
+nltk.data.path.append('.')
 
 def split_to_sentences(data):
-    return [sentence for sentence in map(str.strip, data.split('.')) if sentence] # split based on period and line break
+    sentences = [x for x in data.split("\n") if x]
+    return sentences
 
+from nltk.tokenize import word_tokenize
 def tokenize_sentences(sentences):
-    """
-    Tokenize sentences into tokens (words)
-    
-    Args:
-        sentences: List of strings
-    
-    Returns:
-        List of lists of tokens
-    """
-    
-    tokenized_sentences = []
-    for s in sentences:
-        s = s.lower()
-        tokens = nltk.word_tokenize(s)
-        tokenized_sentences.append(tokens)
-    
+    tokenized_sentences = [word_tokenize(s.lower()) for s in sentences]
     return tokenized_sentences
 
-data = data[:1000]
-sentences = tokenize_sentences(split_to_sentences(data))
+def get_tokenized_data(data):
+    sentences = split_to_sentences(data)
+    tokenized_sentences = tokenize_sentences(sentences)
+    return tokenized_sentences
 
-# Generate n-grams of size n
-# sentences: list of sentence to generate n-gram from
-# n: size of each sequence
-def generate_ngram(sentences, n):
-    ngram = []
-    for s in sentences:
-        ngram.append(list(s[i:i+n] for i in range(len(s)-n+1)))
-    return ngram
+def count_words(tokenized_sentences):
+    word_counts = {}
+    for sentence in tokenized_sentences:
+        for token in sentence:
+            word_counts[token] = word_counts.get(token, 0) + 1
+    return word_counts
 
-three_gram = generate_ngram(sentences, 3)
-print(three_gram)
+def get_words_with_nplus_frequency(tokenized_sentences, minimum_freq):
+    filtered_words = []
+    word_counts = count_words(tokenized_sentences)
+    filtered_words = [word for word, count in word_counts.items() if count >= minimum_freq]
+    return filtered_words
+
+def replace_oov_words_by_unk(tokenized_sentences, vocabulary, unknown_marker="<unk>"):
+    vocabulary = set(vocabulary)  # this makes each search faster
+    replaced_tokenized_sentences = []
+    for sentence in tokenized_sentences:
+        replaced_sentence = []
+        for word in sentence:
+            if word in vocabulary:
+                replaced_sentence.append(word)
+            else:
+                replaced_sentence.append(unknown_marker)
+        replaced_tokenized_sentences.append(replaced_sentence)
+    return replaced_tokenized_sentences
+
+def preprocess_data(train_data, test_data, minimum_freq):
+    vocabulary = get_words_with_nplus_frequency(train_data, minimum_freq)
+    train_data_replaced = replace_oov_words_by_unk(train_data, vocabulary)
+    test_data_replaced = replace_oov_words_by_unk(test_data, vocabulary)
+    return train_data_replaced, test_data_replaced, vocabulary
+
+def count_n_grams(data, n):
+    n_grams = {}
+    for sentence in data:
+        sentence = ["<s>"]*n + sentence + ["<e>"]
+        sentence = tuple(sentence)
+        for i in range(len(sentence) - n + 1):
+            n_gram = sentence[i:i+n]
+            n_gram = tuple(n_gram)
+            if n_gram in n_grams:
+                n_grams[n_gram] += 1
+            else:
+                n_grams[n_gram] = 1
+    return n_grams
+
+def estimate_probability(word, previous_n_gram, n_gram_counts, n_plus1_gram_counts, vocabulary_size, k=1.0):
+    previous_n_gram = tuple(previous_n_gram)
+    previous_n_gram_count = n_gram_counts.get(previous_n_gram, 0)
+    n_plus1_gram = previous_n_gram + (word,)
+    n_plus1_gram_count = n_plus1_gram_counts.get(n_plus1_gram, 0)
+    probability = (n_plus1_gram_count + k) / (previous_n_gram_count + k * vocabulary_size)
+    return probability
+
+def calculate_perplexity(sentence, n_gram_counts, n_plus1_gram_counts, vocabulary_size, k=1.0):
+    n = len(list(n_gram_counts.keys())[0]) 
+    sentence = ["<s>"] * n + sentence + ["<e>"]
+    sentence = tuple(sentence)
+    N = len(sentence)
+    p = 1.0
+    for i in range(N - n):
+        n_gram = sentence[i:i+n]
+        n_plus1_gram = sentence[i:i+n+1]
+        n_gram_count = n_gram_counts.get(n_gram, 0)
+        n_plus1_gram_count = n_plus1_gram_counts.get(n_plus1_gram, 0)
+        probability = (n_plus1_gram_count + k) / (n_gram_count + k * vocabulary_size)
+        p *= probability
+    perplexity = (1/p)**(1/N)
+    return perplexity
+
+def suggest_a_word(previous_tokens, n_gram_counts, new_n_gram_counts, vocabulary, k=1.0, start_with=None):
+    n = len(list(n_gram_counts.keys())[0]) 
+    previous_n_gram = previous_tokens[-n:]
+    probabilities = estimate_probabilities(previous_n_gram, n_gram_counts, new_n_gram_counts, vocabulary, k=k)
+    suggestion = None
+    max_prob = 0
+    for word, prob in probabilities.items():
+        if start_with:
+            if word.startswith(start_with) and prob > max_prob:
+                suggestion = word
+                max_prob = prob
+        else:
+            if prob > max_prob:
+                suggestion = word
+                max_prob = prob
+    return suggestion, max_prob
+
+def get_suggestions(previous_tokens, n_gram_counts_list, vocabulary, k=1.0, start_with=None):
+    model_counts = len(n_gram_counts_list)
+    suggestions = []
+    for i in range(model_counts-1):
+        n_gram_counts = n_gram_counts_list[i]
+        n_plus1_gram_counts = n_gram_counts_list[i+1]
+        
+        suggestion = suggest_a_word(previous_tokens, n_gram_counts, n_plus1_gram_counts, vocabulary, k=k, start_with=start_with)
+        suggestions.append(suggestion)
+    return suggestions
+
+def estimate_probabilities(previous_n_gram, n_gram_counts, n_plus1_gram_counts, vocabulary, k=1.0):
+    previous_n_gram = tuple(previous_n_gram)
+    vocabulary = vocabulary + ["<e>", "<unk>"]
+    vocabulary_size = len(vocabulary)
+    
+    probabilities = {}
+    for word in vocabulary:
+        probability = estimate_probability(word, previous_n_gram, n_gram_counts, n_plus1_gram_counts, vocabulary_size, k=k)
+        probabilities[word] = probability
+
+    return probabilities
+
+def make_count_matrix(n_plus1_gram_counts, vocabulary):
+    vocabulary = vocabulary + ["<e>", "<unk>"]
+    n_grams = []
+    for n_plus1_gram in n_plus1_gram_counts.keys():
+        n_gram = n_plus1_gram[0:-1]
+        n_grams.append(n_gram)
+    n_grams = list(set(n_grams))
+    row_index = {n_gram:i for i, n_gram in enumerate(n_grams)}
+    col_index = {word:j for j, word in enumerate(vocabulary)}
+    nrow = len(n_grams)
+    ncol = len(vocabulary)
+    count_matrix = np.zeros((nrow, ncol))
+    for n_plus1_gram, count in n_plus1_gram_counts.items():
+        n_gram = n_plus1_gram[0:-1]
+        word = n_plus1_gram[-1]
+        if word not in vocabulary:
+            continue
+        i = row_index[n_gram]
+        j = col_index[word]
+        count_matrix[i, j] = count
+    count_matrix = pd.DataFrame(count_matrix, index=n_grams, columns=vocabulary)
+    return count_matrix
+
+def make_probability_matrix(n_plus1_gram_counts, vocabulary, k):
+    count_matrix = make_count_matrix(n_plus1_gram_counts, vocabulary)
+    count_matrix += k
+    prob_matrix = count_matrix.div(count_matrix.sum(axis=1), axis=0)
+    return prob_matrix
