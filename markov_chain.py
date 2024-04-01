@@ -76,7 +76,7 @@ def possible_next_words(n, sentences):
             model[ngram].append(next)
     return model
 
-model = possible_next_words(2, sentences)
+model = possible_next_words(3, sentences)
 
 
 def generate_from_model(model, n, start=None, max_words=1000):
@@ -87,10 +87,10 @@ def generate_from_model(model, n, start=None, max_words=1000):
         start = tuple(result[-n:])
         next = random.choice(model[start])
         if not next:
-           result[-1] += '.'
+           result[-1] += '.' # end of sentence, start new ngram
            result.extend(random.choice(list(model.keys())))
         else:
             result.append(next)
     return ' '.join(result)
 
-print(generate_from_model(model, 2))
+print(generate_from_model(model, 3))
