@@ -87,9 +87,8 @@ def generate_from_model(model, n, start=None, max_words=1000):
         start = tuple(result[-n:])
         next = random.choice(model[start])
         if not next:
-            next = random.choice(model[start])
-            if not next:
-                break
+           result[-1] += '.'
+           result.extend(random.choice(list(model.keys())))
         else:
             result.append(next)
     return ' '.join(result)
