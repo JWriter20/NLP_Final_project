@@ -20,6 +20,7 @@ understanding the context a feel of the story)
 '''
 
 import nltk
+import random
 
 with open("./Prisoner_of_Azkaban.txt", "r") as f: # update the path accordingly.
     data = f.read()
@@ -46,7 +47,6 @@ def tokenize_sentences(sentences):
     
     return tokenized_sentences
 
-data = data[:1000]
 sentences = tokenize_sentences(split_to_sentences(data))
 
 # Generate n-grams of size n
@@ -55,8 +55,42 @@ sentences = tokenize_sentences(split_to_sentences(data))
 def generate_ngram(sentences, n):
     ngram = []
     for s in sentences:
-        ngram.append(list(s[i:i+n] for i in range(len(s)-n+1)))
+        ngram.append([s[i:i+n] for i in range(len(s)-n+1)])
     return ngram
 
 three_gram = generate_ngram(sentences, 3)
-print(three_gram)
+# print(three_gram)
+# for gram in three_gram:
+#     print(next(gram))
+
+
+def possible_next_words(n, sentences):
+    model = {}
+    for s in sentences:
+        s.append(None) # None indicate end of sentence
+        for i in range(len(s)-n):
+            ngram = tuple(s[i:i+n])
+            next = s[i+n]
+            if ngram not in model:
+                model[ngram] = []
+            model[ngram].append(next)
+    return model
+
+model = possible_next_words(3, sentences)
+
+
+def generate_from_model(model, n, start=None, max_words=1000):
+    if not start:
+        start = random.choice(list(model.keys()))
+    result = list(start)
+    for i in range(max_words):
+        start = tuple(result[-n:])
+        next = random.choice(model[start])
+        if not next:
+           result[-1] += '.' # end of sentence, start new ngram
+           result.extend(random.choice(list(model.keys())))
+        else:
+            result.append(next)
+    return ' '.join(result)
+
+print(generate_from_model(model, 3))
