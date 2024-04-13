@@ -54,23 +54,44 @@ def generate_from_model(model, n, max_words):
            result.extend(start)
         else:
             result.append(next)
-    return ' '.join(join_punctuation(result))
+
+    result[0].capitalize()
+    result = ' '.join(result)
+    return join_punctuation(result)
 
 
-# join punctuations with previous word in a list
 def join_punctuation(seq):
-    characters = set('.,;?!')
-    seq = iter(seq)
-    current = next(seq)
+    result = ''
+    for i, s in enumerate(seq):
+        if i+1 < len(seq):
+            if s[-1] == '.' and seq[i+1].alpha():
+                seq[i+1].capitalize()
+            if not s[i+1].alpha:
+                result.append(s[i+1])
+            else:
+                result.append(' ' + s[i+1])
+    return result
 
-    for nxt in seq:
-        if nxt in characters:
-            current += nxt
-        else:
-            yield current
-            current = nxt
+        
 
-    yield current
+# # join punctuations with previous word in a list
+# def join_punctuation(seq):
+#     characters = ['.',',', ';', '?', '!', '\'s', 'n\'t', '\'ll', '\'ve', '\'re', ':']
+#     seq = iter(seq)
+#     current = next(seq)
+#     prev = 'a'
+
+#     for nxt in seq:
+#         if prev[-1] == '.':
+#             current.capitalize()
+#         if nxt in characters:
+#             current += nxt
+#         else:
+#             yield current
+#             prev = current
+#             current = nxt
+
+#     yield current
 
 
 # print out a story combining corpus of text1, text2, using n-gram with size n and up to max_words amount of words
