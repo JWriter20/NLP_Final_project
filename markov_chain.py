@@ -55,43 +55,33 @@ def generate_from_model(model, n, max_words):
         else:
             result.append(next)
 
-    result[0].capitalize()
-    result = ' '.join(result)
-    return join_punctuation(result)
+    result[0] = result[0].capitalize()
+    return ' '.join(join_punctuation(result))
+  
 
-
+# join punctuations with previous word in a list
 def join_punctuation(seq):
-    result = ''
-    for i, s in enumerate(seq):
-        if i+1 < len(seq):
-            if s[-1] == '.' and seq[i+1].alpha():
-                seq[i+1].capitalize()
-            if not s[i+1].alpha:
-                result.append(s[i+1])
-            else:
-                result.append(' ' + s[i+1])
-    return result
+    characters = ['.',',', ';', '?', '!', '\'s', 'n\'t', '\'ll', '\'ve', '\'re', ':']
+    seq = iter(seq)
+    current = next(seq)
+    prev = 'a'
 
-        
+    for nxt in seq:
+        if prev[-1] == '.':
+            # capitalize beginning of a sentence
+            current = current.capitalize()
+        if current == 'i':
+            # capitalize single 'I'
+            current = 'I'
+        if nxt in characters:
+            # combine single punctuation with the end of last word
+            current += nxt
+        else:
+            yield current
+            prev = current
+            current = nxt
 
-# # join punctuations with previous word in a list
-# def join_punctuation(seq):
-#     characters = ['.',',', ';', '?', '!', '\'s', 'n\'t', '\'ll', '\'ve', '\'re', ':']
-#     seq = iter(seq)
-#     current = next(seq)
-#     prev = 'a'
-
-#     for nxt in seq:
-#         if prev[-1] == '.':
-#             current.capitalize()
-#         if nxt in characters:
-#             current += nxt
-#         else:
-#             yield current
-#             prev = current
-#             current = nxt
-
-#     yield current
+    yield current
 
 
 # print out a story combining corpus of text1, text2, using n-gram with size n and up to max_words amount of words
