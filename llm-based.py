@@ -1,75 +1,65 @@
-import openai
+from openai import OpenAI
+from dotenv import load_dotenv
+import os
 
-def generate_story_outline(text1, text2):
-    response = openai.Completion.create(
-        engine="text-davinci-003",
-        prompt=f"Can you come up with a short story that combines the texts \"{text1}\" with \"{text2}\"? Please first provide an outline by splitting the story into 5 sections. This outline should include the characters, setting, and the inciting incident. The first section should be exposition with an inciting incident, then the second section should contain rising action, the third should be the climax, then the falling action, and the resolutions.",
-        max_tokens=500,
-        temperature=0.7
+load_dotenv()
+
+# Get an environment variable
+api_key = os.getenv('OPENAI_API_KEY')
+
+client = OpenAI(api_key=api_key)
+
+def generate_story_outline(text1, text2, advanced_model):
+    messages=[
+            {"role": "system", "content": "You are a creative assistant and author."},
+            {"role": "user", "content": f"Can you come up with a short story that combines the texts \"{text1}\" with \"{text2}\"? Please first provide an outline by splitting the story into 5 sections. This outline should include the characters, setting, and the inciting incident. The first section should be exposition with an inciting incident, then the second section should contain rising action, the third should be the climax, then the falling action, and the resolutions. The rising action section should be the most detailed, while the other sections can be more concise."}
+        ]
+    response = client.chat.completions.create(
+        model="gpt-4" if advanced_model else "gpt-3.5-turbo",
+        messages=messages,
+        max_tokens=2048,
+        temperature=0.7,
+        top_p=1.0,
+        frequency_penalty=0.0,
+        presence_penalty=0.0
     )
-    return response['choices'][0]['text']
+    messages.append({"role": "system", "content": response.choices[0].message.content})
+    return messages
 
-def write_section_and_summarize(setting, characters, inciting_incident, section_outline):
-    story_section = openai.Completion.create(
-        engine="text-davinci-003",
-        prompt=f"Please write the first section of this story utilizing the following setting, characters, and inciting incident: {setting}, {characters}, {inciting_incident}",
-        max_tokens=500,
-        temperature=0.7
-    )['choices'][0]['text']
+def write_next_section(previous_messages, next_section_prompt, advanced_model):
+    previous_messages.append({"role": "user", "content": next_section_prompt})
+    response = client.chat.completions.create(
+        model="gpt-4" if advanced_model else "gpt-3.5-turbo",
+        messages=previous_messages,
+        max_tokens=8092 if advanced_model else 4096,
+        temperature=0.7,
+        top_p=1.0,
+        frequency_penalty=0.0,
+        presence_penalty=0.0
+    )
+    previous_messages.append({"role": "system", "content": response.choices[0].message.content})
+    return previous_messages
 
-    summary = openai.Completion.create(
-        engine="text-davinci-003",
-        prompt=f"Summarize this story section: {story_section}",
-        max_tokens=100,
-        temperature=0.7
-    )['choices'][0]['text']
 
-    return story_section, summary
-
-def write_next_section(summary, section_outline):
-    next_section = openai.Completion.create(
-        engine="text-davinci-003",
-        prompt=f"Given this summary of the previous passage and the outline of the current section, write the next section of the story. The summary: {summary} The outline: {section_outline}",
-        max_tokens=500,
-        temperature=0.7
-    )['choices'][0]['text']
-
-    return next_section
-
-def main(text1, text2):
-    outline = generate_story_outline(text1, text2)
-    # Here, you would extract the setting, characters, inciting incident, and section outlines from the `outline` variable.
-    # For the purpose of this example, let's assume these are manually extracted and defined as follows:
-    setting, characters, inciting_incident = "a setting description", "characters description", "inciting incident description"
-    section_outlines = ["outline for section 1", "outline for section 2", "outline for section 3", "outline for section 4", "outline for section 5"]
+def main(text1, text2, advanced_model=False):
+    messages_so_far = generate_story_outline(text1, text2, advanced_model)
+    sections = ["Exposition with an Inciting Incident section, this should be around 500 words",
+     "Rising action section, this should be around 700 words",
+     "Climax section, this should be around 500 words",
+     "Falling action section, this should be around 400 words",
+     "Resolution section, this should be around 400 words"]
     
-    full_story = ""
-    summary = ""
-    for i, section_outline in enumerate(section_outlines):
-        if i == 0:
-            section, summary = write_section_and_summarize(setting, characters, inciting_incident, section_outline)
-        else:
-            section = write_next_section(summary, section_outline)
-            # Update summary for the next iteration
-            summary = openai.Completion.create(
-                engine="text-davinci-003",
-                prompt=f"Summarize this story section: {section}",
-                max_tokens=100,
-                temperature=0.7
-            )['choices'][0]['text']
-        full_story += "\n" + section
+    fullText = ""
+    
+    for section in sections:
+        prompt = f"Write the next section of the story: {section}"
+        messages_so_far = write_next_section(messages_so_far, prompt, advanced_model)
+        fullText += messages_so_far[-1]["content"] + "\n"
 
-    # Final editing
-    edited_story = openai.Completion.create(
-        engine="text-davinci-003",
-        prompt=f"Here is a story I wrote, please remove/adjust any redundant sections, make edits to make the storyline flow as best you can, and fix any grammatical errors. Return the story without adding any input or reasoning explaining yourself, I just want you to return the edited story. Here is the story: {full_story}",
-        max_tokens=1000,
-        temperature=0.7
-    )['choices'][0]['text']
 
-    return edited_story
+    return fullText
 
 # Example usage
 text1 = "The Great Gatsby"
 text2 = "1984"
-# print(main(text1, text2))
+print(main(text1, text2))
