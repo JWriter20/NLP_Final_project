@@ -24,10 +24,30 @@ import math
 import random
 import numpy as np
 import pandas as pd
+from sklearn import preprocessing
 nltk.data.path.append('.')
 
+def remove_quotes(data):
+    data = data.replace('\"', '')
+    return data
+
+
+def replace_quotes(data):
+    isQuoteStart = True
+    newData = []
+    for i, character in enumerate(data):
+        if character == '\"':
+            if isQuoteStart:
+                newData.append('startquote')
+            else:
+                newData.append('endquote')
+            
+            isQuoteStart = not isQuoteStart
+        newData.append(character)
+    return "".join(newData)
+
 def split_to_sentences(data):
-    sentences = [x for x in data.split("\n") if x]
+    sentences = [x for x in data.split(".") if x]
     return sentences
 
 from nltk.tokenize import word_tokenize
@@ -36,6 +56,8 @@ def tokenize_sentences(sentences):
     return tokenized_sentences
 
 def get_tokenized_data(data):
+    # data = replace_quotes(data)
+    data = remove_quotes(data)
     sentences = split_to_sentences(data)
     tokenized_sentences = tokenize_sentences(sentences)
     return tokenized_sentences
@@ -55,6 +77,8 @@ def get_words_with_nplus_frequency(tokenized_sentences, minimum_freq):
 
 def replace_oov_words_by_unk(tokenized_sentences, vocabulary, unknown_marker="<unk>"):
     vocabulary = set(vocabulary)  # this makes each search faster
+    vocabulary.add("startquote")
+    vocabulary.add("endquote")
     replaced_tokenized_sentences = []
     for sentence in tokenized_sentences:
         replaced_sentence = []
@@ -89,9 +113,12 @@ def count_n_grams(data, n):
 def estimate_probability(word, previous_n_gram, n_gram_counts, n_plus1_gram_counts, vocabulary_size, k=1.0):
     previous_n_gram = tuple(previous_n_gram)
     previous_n_gram_count = n_gram_counts.get(previous_n_gram, 0)
+    
     n_plus1_gram = previous_n_gram + (word,)
     n_plus1_gram_count = n_plus1_gram_counts.get(n_plus1_gram, 0)
+    
     probability = (n_plus1_gram_count + k) / (previous_n_gram_count + k * vocabulary_size)
+
     return probability
 
 def calculate_perplexity(sentence, n_gram_counts, n_plus1_gram_counts, vocabulary_size, k=1.0):
@@ -111,21 +138,31 @@ def calculate_perplexity(sentence, n_gram_counts, n_plus1_gram_counts, vocabular
     return perplexity
 
 def suggest_a_word(previous_tokens, n_gram_counts, new_n_gram_counts, vocabulary, k=1.0, start_with=None):
-    n = len(list(n_gram_counts.keys())[0]) 
-    previous_n_gram = previous_tokens[-n:]
+    n = len(list(n_gram_counts.keys())[0])
+    previous_n_gram = tuple(previous_tokens[-n:]) if len(previous_tokens) >= n else tuple(["<s>"]*(n-len(previous_tokens)) + previous_tokens)
+
     probabilities = estimate_probabilities(previous_n_gram, n_gram_counts, new_n_gram_counts, vocabulary, k=k)
-    suggestion = None
-    max_prob = 0
-    for word, prob in probabilities.items():
-        if start_with:
-            if word.startswith(start_with) and prob > max_prob:
-                suggestion = word
-                max_prob = prob
-        else:
-            if prob > max_prob:
-                suggestion = word
-                max_prob = prob
-    return suggestion, max_prob
+    
+    if start_with:
+        filtered_probabilities = {word: prob for word, prob in probabilities.items() if word.startswith(start_with)}
+    else:
+        filtered_probabilities = probabilities
+     
+    sorted_probabilities = sorted(filtered_probabilities.items(), key=lambda x: x[1], reverse=True)
+
+    top_choices = sorted_probabilities[:4]
+
+    total_prob = sum(prob for _, prob in top_choices)
+    if total_prob == 0:
+        return None, 0 
+    
+    normalized_choices = [(word, prob/total_prob) for word, prob in top_choices]
+    words, probs = zip(*normalized_choices)  
+    chosen_word = random.choices(words, weights=probs, k=1)[0]
+    
+    chosen_word_prob = dict(top_choices)[chosen_word]
+
+    return chosen_word, chosen_word_prob
 
 def get_suggestions(previous_tokens, n_gram_counts_list, vocabulary, k=1.0, start_with=None):
     model_counts = len(n_gram_counts_list)
@@ -181,19 +218,17 @@ def make_probability_matrix(n_plus1_gram_counts, vocabulary, k):
 
 def generate_text(tokenized_data, n, num_words=1000):
     # Count n-grams in the tokenized data
-    n_gram_counts = count_n_grams(tokenized_data, n)
-    n_plus1_gram_counts = count_n_grams(tokenized_data, n+1)
-    
-    # Start with an initial n-gram
-    text = ["<s>"] * (n-1)
+    text = []
+    n_gram_counts = [count_n_grams(tokenized_data, i) for i in range(1, n+1)]
     for _ in range(num_words):
-        current_n_gram = tuple(text[-(n-1):]) if n > 1 else ()
-        probabilities = estimate_probabilities(current_n_gram, n_gram_counts, n_plus1_gram_counts, vocabulary)
-        
-        # Weighted random choice of the next word
-        words = list(probabilities.keys())
-        probs = list(probabilities.values())
-        next_word = np.random.choice(words, p=probs)
+        suggestions = [key for key, value in get_suggestions(text, n_gram_counts, vocabulary, k=1.0)]
+        next_word = max(set(suggestions), key=suggestions.count)
+
+        if next_word == "<unk>":
+            for i in range(len(suggestions) - 1, -1, -1):
+                if suggestions[i] != "<unk>":
+                    next_word = suggestions[i]
+                    break
         
         if next_word == "<e>":  # If the end token is generated, restart the n-gram context
             text += ["<s>"] * (n-1)
@@ -204,13 +239,14 @@ def generate_text(tokenized_data, n, num_words=1000):
             break
 
     # Return the generated text
-    return ' '.join(text[n-1:]).replace(" <e>", ".").replace("<unk>", "UNK")
+    return ' '.join(text[n-1:]).replace(" <e>", ".").replace("<unk>", "UNK").replace("<s>", "")
 
 # Example usage
 with open("./Prisoner_of_Azkaban.txt", "r") as f: # update the path accordingly.
     large_text = f.read()
+
 preprocessed_data = get_tokenized_data(large_text)
 train_data, test_data, vocabulary = preprocess_data(preprocessed_data, preprocessed_data, minimum_freq=2)
 
-generated_text = generate_text(train_data, n=3, num_words=1000)
+generated_text = generate_text(train_data, n=5, num_words=1000)
 print(generated_text)
