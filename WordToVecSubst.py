@@ -1,4 +1,6 @@
 import gensim.downloader as api
+import string
+from functools import reduce
 
 # Load a pre-trained word2vec model (this is just an example, might need internet connection to download)
 model = api.load("word2vec-google-news-300")
@@ -29,5 +31,12 @@ with open('HarryPotterSection.txt') as f:
 other_tokens = word_tokenize(other_text.lower())
 
 transformed_text = [find_similar_shakespeare(word, model, macbeth_vectors) for word in other_tokens]
-shakespearified_text = ' '.join(transformed_text)
+# Join while accounting for punctation
+shakespearified_text = ''.join([
+    (word if any(char in string.punctuation for char in word) else ' ' + word)
+    for word in transformed_text
+]).strip()
+
+        
+        
 print(shakespearified_text)
