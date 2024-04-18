@@ -2,11 +2,15 @@ import nltk
 import random
 
 # split the corpus into sentences based on period and line break
+# @param data  the input text
+# @return      a list of sentences
 def split_to_sentences(data):
     return [sentence for sentence in map(str.strip, data.split('.')) if sentence]
 
 
 # tokenize the sentences and remove unwanted punctuations from the tokens
+# @param sentences  list of sentences
+# @return           list of tokenized sentences
 def tokenize_sentences(sentences):
     unwanted_punct = ['``', '--', '\'\'']
     
@@ -21,6 +25,9 @@ def tokenize_sentences(sentences):
 
 
 # create a model of possible subsequent words of each word
+# @param n          size of N-gram
+# @param sentences  list of tokenized sentences
+# @return           dictionary that maps a list of possible words that follows an N-gram to the N-gram
 def possible_next_words(n, sentences):
     model = {}
     for s in sentences:
@@ -35,6 +42,10 @@ def possible_next_words(n, sentences):
 
 
 # generate sentences based on a model using n-grams with size n and up to max_words amount of words
+# @param model       dictionary that maps a list of possible words that follows an N-gram to the N-gram
+# @param n           size of N-gram
+# @param max_words   max number of words to generate
+# @return            string representing the generated text
 def generate_from_model(model, n, max_words):
     # randomly choose a start n-gram
     start = random.choice(list(model.keys()))
@@ -59,15 +70,17 @@ def generate_from_model(model, n, max_words):
     return ' '.join(join_punctuation(result))
   
 
-# join punctuations with previous word in a list
+# join punctuations with previous word in a list and capitalize words at beginning of sentences
+# @param seq  list of strings
+# @yield      current token, either a word or word plus punctuation     
 def join_punctuation(seq):
     characters = ['.',',', ';', '?', '!', '\'s', 'n\'t', '\'ll', '\'ve', '\'re', ':']
     seq = iter(seq)
     current = next(seq)
-    prev = 'a'
+    prev = 'a' # initilize prev using 'a' as placeholder
 
     for nxt in seq:
-        if prev[-1] == '.':
+        if prev[-1] == '.' or prev[-1] == '!' or prev[-1] == '?':
             # capitalize beginning of a sentence
             current = current.capitalize()
         if current == 'i':
@@ -85,6 +98,10 @@ def join_punctuation(seq):
 
 
 # print out a story combining corpus of text1, text2, using n-gram with size n and up to max_words amount of words
+# @param text1       the first input text
+# @param text2       the second input text
+# @param n           size of N-gram
+# @param max_words   max number of words to generate
 def generate_story(text1, text2, n, max_words):
     with open(text1, "r", encoding="latin-1") as f1:
         data1 = f1.read()    
@@ -98,4 +115,4 @@ def generate_story(text1, text2, n, max_words):
     print(generate_from_model(model, n, max_words))
 
 
-generate_story("./Prisoner_of_Azkaban.txt", "./atlasshrugged.txt", 2, 1000)
+generate_story("./Prisoner_of_Azkaban.txt", "./atlasshrugged.txt", 3, 100)
