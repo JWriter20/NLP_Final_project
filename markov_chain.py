@@ -74,7 +74,7 @@ def generate_from_model(model, n, max_words):
 # @param seq  list of strings
 # @yield      current token, either a word or word plus punctuation     
 def join_punctuation(seq):
-    characters = ['.',',', ';', '?', '!', '\'s', 'n\'t', '\'ll', '\'ve', '\'re', ':']
+    characters = ['.',',', ';', '?', '!', '\'s', 'n\'t', '\'ll', '\'ve', '\'re', ':', '\'m']
     seq = iter(seq)
     current = next(seq)
     prev = 'a' # initilize prev using 'a' as placeholder
@@ -115,4 +115,4 @@ def generate_story(text1, text2, n, max_words):
     print(generate_from_model(model, n, max_words))
 
 
-generate_story("./Prisoner_of_Azkaban.txt", "./atlasshrugged.txt", 3, 100)
+# generate_story(".base_texts/Prisoner_of_Azkaban.txt", ".base_texts/atlasshrugged.txt", 3, 100)
