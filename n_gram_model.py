@@ -300,7 +300,7 @@ def make_probability_matrix(n_plus1_gram_counts, vocabulary, k):
 # @param n                     the n-gram size to use for text generation
 # @param num_words             number of words to generate
 # @return                      generated text string
-def generate_text(tokenized_data, n, num_words=100):
+def generate_text(tokenized_data, n, vocabulary, num_words=100):
     # Count n-grams in the tokenized data
     text = []
     n_gram_counts = [count_n_grams(tokenized_data, i) for i in range(1, n+1)]
@@ -328,13 +328,27 @@ def generate_text(tokenized_data, n, num_words=100):
     # Return the generated text
     return ' '.join([word for word in text[n-1:] if word != "<s>"]).replace(" <e>", ".").replace("<unk>", "UNK")
 
-# Example usage
-with open(".base_texts/Prisoner_of_Azkaban.txt", "r") as f: # update the path accordingly.
-    large_text = f.read()
+# Generates text based on a model of n-grams.
+# @param file_path       path to the text file from which to read and generate text
+# @param minimum_freq    minimum frequency of words to include in the vocabulary
+# @param n               the n-gram size to use for text generation
+# @param num_words       number of words to generate
+# @return                generated text string
+def generate_from_text(file_path, minimum_freq=2, n=5, num_words=1000):
+    # Read the large text file
+    with open(file_path, "r") as f:
+        large_text = f.read()
 
-preprocessed_data = get_tokenized_data(large_text)
-train_data, test_data, vocabulary = preprocess_data(preprocessed_data, preprocessed_data, minimum_freq=2)
+    # Tokenize and preprocess the data
+    preprocessed_data = get_tokenized_data(large_text)
+    train_data, test_data, vocabulary = preprocess_data(preprocessed_data, preprocessed_data, minimum_freq=minimum_freq)
 
-generated_text = generate_text(train_data, n=5, num_words=1000)
-generated_text = " ".join(join_punctuation(generated_text.split(" ")))
-print(generated_text.capitalize())
+    # Generate text
+    generated_text = generate_text(train_data, n=n, vocabulary=vocabulary, num_words=num_words)
+
+    # Join punctuation
+    final_text = " ".join(join_punctuation(generated_text.split(" ")))
+
+    return final_text
+
+# generate_from_text("atlasshrugged.txt", 2, 5, 1000)

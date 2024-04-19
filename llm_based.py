@@ -60,6 +60,6 @@ def main(text1, text2, advanced_model=False):
     return fullText
 
 # Example usage
-text1 = "The Great Gatsby"
-text2 = "1984"
-print(main(text1, text2))
+# text1 = "The Great Gatsby"
+# text2 = "1984"
+# print(main(text1, text2))

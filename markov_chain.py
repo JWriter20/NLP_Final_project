@@ -112,7 +112,7 @@ def generate_story(text1, text2, n, max_words):
     sentence_splits.extend(split_to_sentences(data2))
     sentences = tokenize_sentences(sentence_splits)
     model = possible_next_words(n, sentences)
-    print(generate_from_model(model, n, max_words))
+    return generate_from_model(model, n, max_words)
 
 
-# generate_story(".base_texts/Prisoner_of_Azkaban.txt", ".base_texts/atlasshrugged.txt", 3, 100)
+# generate_story("./base_texts/Prisoner_of_Azkaban.txt", "./base_texts/atlasshrugged.txt", 3, 100)
